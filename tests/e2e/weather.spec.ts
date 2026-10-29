@@ -69,6 +69,8 @@ test('busca uma cidade, mostra a previsão de cinco dias e alterna para Fahrenhe
   await page.getByRole('button', { name: 'Buscar' }).click();
 
   await expect(page.getByRole('heading', { name: 'Curitiba' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Curitiba' })).toBeFocused();
+  await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
   await expect(page.getByRole('region', { name: 'Previsão de 5 dias' })).toBeVisible();
   await expect(page.getByText('0,0 °C').first()).toBeVisible();
 
@@ -85,6 +87,173 @@ test('mostra estado vazio quando geocoding responde sem results', async ({ page 
   await page.getByRole('button', { name: 'Buscar' }).click();
 
   await expect(page.getByRole('heading', { name: 'Nenhuma cidade encontrada' })).toBeVisible();
+});
+
+test('não faz requisição de geocodificação para busca vazia ou somente com espaços', async ({
+  page,
+}) => {
+  const geocodingRequests: string[] = [];
+  await page.route(
+    (url) => url.hostname === 'geocoding-api.open-meteo.com',
+    async (route) => {
+      geocodingRequests.push(route.request().url());
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ results: [cityResult] }),
+      });
+    },
+  );
+
+  await page.goto('/');
+  const searchbox = page.getByRole('searchbox', { name: 'Buscar cidade' });
+  const submit = page.getByRole('button', { name: 'Buscar' });
+
+  await expect(submit).toBeDisabled();
+  await searchbox.press('Enter');
+
+  await searchbox.fill('   ');
+  await expect(submit).toBeDisabled();
+  await searchbox.press('Enter');
+
+  await expect(page.getByText('Busque uma cidade para consultar o clima.')).toBeVisible();
+  expect(geocodingRequests).toHaveLength(0);
+});
+
+test('trata caracteres especiais como texto literal no fluxo sem resultados', async ({ page }) => {
+  const query = '<b>Cidade & "Especial"</b>';
+  let forecastRequested = false;
+  await page.route(
+    (url) => url.hostname === 'geocoding-api.open-meteo.com' && url.pathname === '/v1/search',
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ results: [] }),
+      });
+    },
+  );
+  await page.route(
+    (url) => url.hostname === 'api.open-meteo.com',
+    async (route) => {
+      forecastRequested = true;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(forecastResponse(0)),
+      });
+    },
+  );
+
+  await page.goto('/');
+  const searchbox = page.getByRole('searchbox', { name: 'Buscar cidade' });
+  await searchbox.fill(query);
+  await page.getByRole('button', { name: 'Buscar' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Nenhuma cidade encontrada' })).toBeVisible();
+  // a consulta aparece como texto literal e não é interpretada como HTML
+  await expect(page.getByText(query)).toBeVisible();
+  expect(await page.locator('main b').count()).toBe(0);
+  await expect(searchbox).toBeEnabled();
+  await expect(searchbox).toHaveValue(query);
+  expect(forecastRequested).toBe(false);
+});
+
+test('geocoding sem resultados mantém a busca editável e não consulta o clima', async ({
+  page,
+}) => {
+  let forecastRequested = false;
+  await page.route(
+    (url) => url.hostname === 'geocoding-api.open-meteo.com' && url.pathname === '/v1/search',
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ results: [] }),
+      });
+    },
+  );
+  await page.route(
+    (url) => url.hostname === 'api.open-meteo.com',
+    async (route) => {
+      forecastRequested = true;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(forecastResponse(0)),
+      });
+    },
+  );
+
+  await page.goto('/');
+  const searchbox = page.getByRole('searchbox', { name: 'Buscar cidade' });
+  await searchbox.fill('Atlântida');
+  await page.getByRole('button', { name: 'Buscar' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Nenhuma cidade encontrada' })).toBeVisible();
+  await expect(searchbox).toBeEnabled();
+  await expect(searchbox).toHaveValue('Atlântida');
+  await searchbox.fill('Atlântida do Sul');
+  await expect(searchbox).toHaveValue('Atlântida do Sul');
+  expect(forecastRequested).toBe(false);
+});
+
+test('forecast incompleto mostra Indisponível nos campos ausentes e preserva os dados válidos', async ({
+  page,
+}) => {
+  const partialForecast = {
+    timezone: 'America/Sao_Paulo',
+    current: {
+      time: '2026-10-29T12:00',
+      temperature_2m: 21.4,
+      apparent_temperature: null,
+      relative_humidity_2m: null,
+      weather_code: 0,
+      wind_speed_10m: 8,
+      precipitation: 0,
+      pressure_msl: 1013,
+    },
+    daily: {
+      time: ['2026-10-29', '2026-10-30', '2026-10-31', '2026-11-01', '2026-11-02'],
+      weather_code: [0, 1, 2, 3, 61],
+      temperature_2m_min: [null, 1, 2, 3, 4],
+      temperature_2m_max: [null, 11, 12, 13, 14],
+      precipitation_probability_max: [0, 10, 20, 30, 80],
+      wind_speed_10m_max: [8, 9, 10, 11, 12],
+    },
+  };
+  await page.route(
+    (url) => url.hostname === 'geocoding-api.open-meteo.com' && url.pathname === '/v1/search',
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ results: [cityResult] }),
+      });
+    },
+  );
+  await page.route(
+    (url) => url.hostname === 'api.open-meteo.com' && url.pathname === '/v1/forecast',
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(partialForecast),
+      });
+    },
+  );
+
+  await page.goto('/');
+  await page.getByRole('searchbox', { name: 'Buscar cidade' }).fill('Curitiba');
+  await page.getByRole('button', { name: 'Buscar' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Curitiba' })).toBeVisible();
+  // dados válidos preservados: temperatura atual e as cinco datas da previsão
+  await expect(page.getByText('21,4 °C')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Previsão de 5 dias' })).toBeVisible();
+  await expect(page.getByRole('article')).toHaveCount(5);
+  // 2 métricas atuais (sensação e umidade) + 2 campos do primeiro dia (mín. e máx.)
+  await expect(page.getByText('Indisponível', { exact: true })).toHaveCount(4);
 });
 
 test('renderiza o clima corretamente no viewport mobile 375x812', async ({ page }) => {

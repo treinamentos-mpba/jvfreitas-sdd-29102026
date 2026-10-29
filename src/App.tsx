@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import CurrentWeather from './components/CurrentWeather';
 import ForecastList from './components/ForecastList';
 import SearchBar from './components/SearchBar';
@@ -12,6 +12,15 @@ import type { Unit } from './types/weather';
 export default function App() {
   const [unit, setUnit] = useState<Unit>('celsius');
   const weather = useWeather();
+  const mainRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (weather.status !== 'success' && weather.status !== 'empty') {
+      return;
+    }
+
+    mainRef.current?.querySelector<HTMLElement>('h2[tabindex="-1"]')?.focus();
+  }, [weather.status]);
 
   function renderWeatherContent() {
     switch (weather.status) {
@@ -100,6 +109,8 @@ export default function App() {
 
       <main
         id="main-content"
+        ref={mainRef}
+        aria-busy={weather.status === 'loading'}
         tabIndex={-1}
         className="mx-auto max-w-7xl space-y-8 px-4 py-8 focus-visible:outline-none sm:px-6 lg:px-8"
       >

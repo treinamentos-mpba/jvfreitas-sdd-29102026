@@ -39,7 +39,7 @@ export default function CurrentWeather({ city, current, unit }: CurrentWeatherPr
     >
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 id={titleId} className="text-xl font-semibold">
+          <h2 id={titleId} tabIndex={-1} className="text-xl font-semibold">
             {city.name}
           </h2>
           {location && <p className="mt-1 text-sm text-slate-300">{location}</p>}

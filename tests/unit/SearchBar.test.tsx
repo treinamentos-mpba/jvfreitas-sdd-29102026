@@ -41,6 +41,22 @@ describe('SearchBar', () => {
     expect(onSearch).toHaveBeenCalledWith('Curitiba');
   });
 
+  it('envia acentos, pontuação e marcação como texto literal, apenas sem espaços externos', async () => {
+    const user = userEvent.setup();
+    const onSearch = vi.fn<(city: string) => void>();
+
+    render(<SearchBar onSearch={onSearch} />);
+
+    await user.type(
+      screen.getByRole('searchbox', { name: 'Buscar cidade' }),
+      '  São-Paulo & "Łódź" <b>  ',
+    );
+    await user.click(screen.getByRole('button', { name: 'Buscar' }));
+
+    expect(onSearch).toHaveBeenCalledOnce();
+    expect(onSearch).toHaveBeenCalledWith('São-Paulo & "Łódź" <b>');
+  });
+
   it('desabilita input e busca quando disabled é true', () => {
     const onSearch = vi.fn<(city: string) => void>();
 

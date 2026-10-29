@@ -80,4 +80,48 @@ describe('useWeather', () => {
     expect(result.current.data).toEqual(mockWeatherData);
     expect(result.current.error).toBeNull();
   });
+
+  it('refaz a última busca depois de uma falha de rede offline', async () => {
+    const offlineError = new WeatherServiceError(
+      'Não foi possível conectar ao serviço de clima. Verifique sua conexão e tente novamente.',
+      null,
+    );
+    vi.mocked(searchCities)
+      .mockRejectedValueOnce(offlineError)
+      .mockResolvedValueOnce([mockWeatherData.city]);
+    vi.mocked(getWeather).mockResolvedValue(mockWeatherData);
+    const { result } = renderHook(() => useWeather());
+
+    await act(async () => {
+      await result.current.search('Campinas');
+    });
+
+    expect(result.current.status).toBe('error');
+    expect(result.current.error?.message).toContain('Verifique sua conexão');
+
+    await act(async () => {
+      await result.current.retry();
+    });
+
+    expect(searchCities).toHaveBeenNthCalledWith(1, 'Campinas');
+    expect(searchCities).toHaveBeenNthCalledWith(2, 'Campinas');
+    expect(getWeather).toHaveBeenCalledWith(mockWeatherData.city);
+    expect(result.current.status).toBe('success');
+    expect(result.current.data).toEqual(mockWeatherData);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('não expõe mensagens técnicas de erros inesperados', async () => {
+    vi.mocked(searchCities).mockRejectedValue(new TypeError('Failed to fetch'));
+    const { result } = renderHook(() => useWeather());
+
+    await act(async () => {
+      await result.current.search('Campinas');
+    });
+
+    expect(result.current.status).toBe('error');
+    expect(result.current.error?.message).toBe(
+      'Não foi possível carregar os dados do clima. Verifique sua conexão e tente novamente.',
+    );
+  });
 });

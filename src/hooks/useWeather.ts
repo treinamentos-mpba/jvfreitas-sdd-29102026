@@ -22,11 +22,10 @@ function toWeatherServiceError(error: unknown): WeatherServiceError {
     return error;
   }
 
-  if (error instanceof Error) {
-    return new WeatherServiceError(error.message, null);
-  }
-
-  return new WeatherServiceError('Falha de rede.', null);
+  return new WeatherServiceError(
+    'Não foi possível carregar os dados do clima. Verifique sua conexão e tente novamente.',
+    null,
+  );
 }
 
 export function useWeather(): UseWeatherResult {

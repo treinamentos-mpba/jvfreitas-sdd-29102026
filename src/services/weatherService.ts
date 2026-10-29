@@ -4,6 +4,10 @@ const GEOCODING_URL = 'https://geocoding-api.open-meteo.com/v1/search';
 const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
 const MAX_RESULTS = 5;
 const REQUEST_TIMEOUT_MS = 10_000;
+const NETWORK_ERROR_MESSAGE =
+  'Não foi possível conectar ao serviço de clima. Verifique sua conexão e tente novamente.';
+const TIMEOUT_ERROR_MESSAGE =
+  'A conexão excedeu o limite de 10 segundos. Verifique sua conexão e tente novamente.';
 const CURRENT_FIELDS =
   'temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,precipitation,pressure_msl';
 const DAILY_FIELDS =
@@ -25,17 +29,53 @@ function isAbortError(error: unknown): boolean {
   );
 }
 
-async function fetchWithTimeout(url: string, init: RequestInit = {}): Promise<Response> {
+async function fetchWithTimeout<T>(
+  url: string,
+  init: RequestInit,
+  onResponse: (response: Response) => Promise<T>,
+): Promise<T> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeoutError = new Error(TIMEOUT_ERROR_MESSAGE);
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timeoutId = setTimeout(() => {
+      controller.abort();
+      reject(timeoutError);
+    }, REQUEST_TIMEOUT_MS);
+  });
 
   try {
-    return await fetch(url, { ...init, signal: controller.signal });
+    const response = await Promise.race([
+      fetch(url, { ...init, signal: controller.signal }),
+      timeout,
+    ]);
+    return await Promise.race([onResponse(response), timeout]);
   } catch (error) {
-    const message = isAbortError(error) ? 'A requisição demorou demais.' : 'Falha de rede.';
-    throw new WeatherServiceError(message, null);
+    if (error instanceof WeatherServiceError) {
+      throw error;
+    }
+
+    if (error === timeoutError || isAbortError(error)) {
+      throw new WeatherServiceError(TIMEOUT_ERROR_MESSAGE, null);
+    }
+
+    throw new WeatherServiceError(NETWORK_ERROR_MESSAGE, null);
   } finally {
-    clearTimeout(timeoutId);
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
+async function parseJsonResponse(response: Response, message: string): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+
+    throw new WeatherServiceError(message, response.status);
   }
 }
 
@@ -102,39 +142,35 @@ export async function searchCities(name: string): Promise<City[]> {
   }
 
   const url = `${GEOCODING_URL}?name=${encodeURIComponent(query)}&count=${MAX_RESULTS}&language=pt&format=json`;
-  const response = await fetchWithTimeout(url, {
-    headers: { Accept: 'application/json' },
+  return fetchWithTimeout(url, { headers: { Accept: 'application/json' } }, async (response) => {
+    if (!response.ok) {
+      throw new WeatherServiceError(
+        'Não foi possível buscar cidades agora. Tente novamente.',
+        response.status,
+      );
+    }
+
+    const payload = await parseJsonResponse(
+      response,
+      'A busca retornou uma resposta inválida. Tente novamente.',
+    );
+
+    if (!isRecord(payload) || payload.results === undefined) {
+      return [];
+    }
+
+    if (!Array.isArray(payload.results)) {
+      throw new WeatherServiceError(
+        'A busca retornou dados em formato inesperado. Tente novamente.',
+        response.status,
+      );
+    }
+
+    return payload.results
+      .map(mapCity)
+      .filter((city): city is City => city !== null)
+      .slice(0, MAX_RESULTS);
   });
-
-  if (!response.ok) {
-    throw new WeatherServiceError(
-      `Open-Meteo geocoding respondeu com HTTP ${response.status}.`,
-      response.status,
-    );
-  }
-
-  let payload: unknown;
-  try {
-    payload = await response.json();
-  } catch {
-    throw new WeatherServiceError(
-      'A resposta de geocoding não contém JSON válido.',
-      response.status,
-    );
-  }
-
-  if (!isRecord(payload) || payload.results === undefined) {
-    return [];
-  }
-
-  if (!Array.isArray(payload.results)) {
-    throw new WeatherServiceError('A resposta de geocoding tem formato inválido.', response.status);
-  }
-
-  return payload.results
-    .map(mapCity)
-    .filter((city): city is City => city !== null)
-    .slice(0, MAX_RESULTS);
 }
 
 export async function getWeather(city: City): Promise<WeatherData> {
@@ -150,64 +186,64 @@ export async function getWeather(city: City): Promise<WeatherData> {
     timezone: city.timeZone,
     forecast_days: '5',
   });
-  const response = await fetchWithTimeout(`${FORECAST_URL}?${params.toString()}`, {
-    headers: { Accept: 'application/json' },
-  });
+  return fetchWithTimeout(
+    `${FORECAST_URL}?${params.toString()}`,
+    { headers: { Accept: 'application/json' } },
+    async (response) => {
+      if (!response.ok) {
+        throw new WeatherServiceError(
+          'Não foi possível carregar a previsão agora. Tente novamente.',
+          response.status,
+        );
+      }
 
-  if (!response.ok) {
-    throw new WeatherServiceError(
-      `Open-Meteo forecast respondeu com HTTP ${response.status}.`,
-      response.status,
-    );
-  }
+      const payload = await parseJsonResponse(
+        response,
+        'A previsão retornou uma resposta inválida. Tente novamente.',
+      );
 
-  let payload: unknown;
-  try {
-    payload = await response.json();
-  } catch {
-    throw new WeatherServiceError(
-      'A resposta de forecast não contém JSON válido.',
-      response.status,
-    );
-  }
+      if (!isRecord(payload) || !isRecord(payload.current) || !isRecord(payload.daily)) {
+        throw new WeatherServiceError(
+          'Os dados da previsão estão incompletos. Tente novamente.',
+          response.status,
+        );
+      }
 
-  if (!isRecord(payload) || !isRecord(payload.current) || !isRecord(payload.daily)) {
-    throw new WeatherServiceError('A resposta de forecast está incompleta.', response.status);
-  }
+      const daily = payload.daily;
+      const dates = daily.time;
+      if (
+        !Array.isArray(dates) ||
+        dates.length < 5 ||
+        dates.slice(0, 5).some((date) => typeof date !== 'string')
+      ) {
+        throw new WeatherServiceError(
+          'A previsão não contém cinco datas válidas. Tente novamente.',
+          response.status,
+        );
+      }
 
-  const daily = payload.daily;
-  const dates = daily.time;
-  if (
-    !Array.isArray(dates) ||
-    dates.length < 5 ||
-    dates.slice(0, 5).some((date) => typeof date !== 'string')
-  ) {
-    throw new WeatherServiceError(
-      'A resposta de forecast não contém cinco datas válidas.',
-      response.status,
-    );
-  }
+      const current = payload.current;
+      const currentWeather: CurrentWeather = {
+        temperatureC: finiteNumber(current.temperature_2m),
+        apparentTemperatureC: finiteNumber(current.apparent_temperature),
+        weatherCode: finiteNumber(current.weather_code),
+        relativeHumidityPercent: finiteNumber(current.relative_humidity_2m),
+        windSpeedKmh: finiteNumber(current.wind_speed_10m),
+        precipitationMm: finiteNumber(current.precipitation),
+        pressureHpa: finiteNumber(current.pressure_msl),
+        observedAtLocal: optionalText(current.time),
+      };
 
-  const current = payload.current;
-  const currentWeather: CurrentWeather = {
-    temperatureC: finiteNumber(current.temperature_2m),
-    apparentTemperatureC: finiteNumber(current.apparent_temperature),
-    weatherCode: finiteNumber(current.weather_code),
-    relativeHumidityPercent: finiteNumber(current.relative_humidity_2m),
-    windSpeedKmh: finiteNumber(current.wind_speed_10m),
-    precipitationMm: finiteNumber(current.precipitation),
-    pressureHpa: finiteNumber(current.pressure_msl),
-    observedAtLocal: optionalText(current.time),
-  };
+      const forecast: ForecastDay[] = dates.slice(0, 5).map((date, index) => ({
+        date: date as string,
+        weatherCode: dailyNumber(daily, 'weather_code', index),
+        minimumTemperatureC: dailyNumber(daily, 'temperature_2m_min', index),
+        maximumTemperatureC: dailyNumber(daily, 'temperature_2m_max', index),
+        precipitationProbabilityPercent: dailyNumber(daily, 'precipitation_probability_max', index),
+        maximumWindSpeedKmh: dailyNumber(daily, 'wind_speed_10m_max', index),
+      }));
 
-  const forecast: ForecastDay[] = dates.slice(0, 5).map((date, index) => ({
-    date: date as string,
-    weatherCode: dailyNumber(daily, 'weather_code', index),
-    minimumTemperatureC: dailyNumber(daily, 'temperature_2m_min', index),
-    maximumTemperatureC: dailyNumber(daily, 'temperature_2m_max', index),
-    precipitationProbabilityPercent: dailyNumber(daily, 'precipitation_probability_max', index),
-    maximumWindSpeedKmh: dailyNumber(daily, 'wind_speed_10m_max', index),
-  }));
-
-  return { city, current: currentWeather, forecast };
+      return { city, current: currentWeather, forecast };
+    },
+  );
 }

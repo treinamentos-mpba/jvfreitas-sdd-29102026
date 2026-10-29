@@ -86,11 +86,14 @@ describe('searchCities', () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 503 }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(searchCities('Campinas')).rejects.toBeInstanceOf(WeatherServiceError);
-    await expect(searchCities('Campinas')).rejects.toMatchObject({ status: 503 });
+    await expect(searchCities('Campinas')).rejects.toMatchObject({
+      name: 'WeatherServiceError',
+      message: 'Não foi possível buscar cidades agora. Tente novamente.',
+      status: 503,
+    });
   });
 
-  it('aborta e lança WeatherServiceError após dez segundos', async () => {
+  it('aborta e lança uma mensagem clara após dez segundos', async () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn<typeof fetch>(
       (_input, init) =>
@@ -110,7 +113,8 @@ describe('searchCities', () => {
 
     const request = expect(searchCities('Campinas')).rejects.toMatchObject({
       name: 'WeatherServiceError',
-      message: 'A requisição demorou demais.',
+      message:
+        'A conexão excedeu o limite de 10 segundos. Verifique sua conexão e tente novamente.',
       status: null,
     });
     await vi.advanceTimersByTimeAsync(10_000);
@@ -126,10 +130,36 @@ describe('searchCities', () => {
 
     await expect(searchCities('Campinas')).rejects.toMatchObject({
       name: 'WeatherServiceError',
-      message: 'Falha de rede.',
+      message:
+        'Não foi possível conectar ao serviço de clima. Verifique sua conexão e tente novamente.',
       status: null,
     });
     expect(clearTimeoutSpy).toHaveBeenCalledOnce();
+  });
+
+  it('mantém o timeout ativo enquanto lê a resposta JSON', async () => {
+    vi.useFakeTimers();
+    let requestSignal: AbortSignal | undefined;
+    const fetchMock = vi.fn<typeof fetch>((_input, init) => {
+      requestSignal = init?.signal ?? undefined;
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => new Promise<unknown>(() => {}),
+      } as Response);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const request = expect(searchCities('Campinas')).rejects.toMatchObject({
+      name: 'WeatherServiceError',
+      message:
+        'A conexão excedeu o limite de 10 segundos. Verifique sua conexão e tente novamente.',
+      status: null,
+    });
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    await request;
+    expect(requestSignal?.aborted).toBe(true);
   });
 
   it('consulta current e daily e mapeia cinco dias por índice', async () => {
@@ -186,6 +216,7 @@ describe('searchCities', () => {
 
     await expect(getWeather(mockWeatherData.city)).rejects.toMatchObject({
       name: 'WeatherServiceError',
+      message: 'Não foi possível carregar a previsão agora. Tente novamente.',
       status: 502,
     });
   });
@@ -196,7 +227,8 @@ describe('searchCities', () => {
 
     await expect(getWeather(mockWeatherData.city)).rejects.toMatchObject({
       name: 'WeatherServiceError',
-      message: 'Falha de rede.',
+      message:
+        'Não foi possível conectar ao serviço de clima. Verifique sua conexão e tente novamente.',
       status: null,
     });
   });
@@ -221,7 +253,8 @@ describe('searchCities', () => {
 
     const request = expect(getWeather(mockWeatherData.city)).rejects.toMatchObject({
       name: 'WeatherServiceError',
-      message: 'A requisição demorou demais.',
+      message:
+        'A conexão excedeu o limite de 10 segundos. Verifique sua conexão e tente novamente.',
       status: null,
     });
     await vi.advanceTimersByTimeAsync(10_000);
