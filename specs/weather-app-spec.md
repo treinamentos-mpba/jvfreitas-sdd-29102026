@@ -39,37 +39,37 @@ Aplicação web responsiva, em pt-BR, para pesquisar uma cidade e consultar seu 
 
 ### RF1 — Buscar cidades
 
-- **Given** que a consulta, após remover espaços externos, retorna mais de cinco resultados, **When** a pessoa envia a busca, **Then** a aplicação exibe somente os cinco primeiros na ordem recebida e permite selecionar cada resultado.
-- **Given** que há resultados de busca, **When** eles são exibidos, **Then** cada item mostra localidade, região administrativa e país quando fornecidos; coordenadas também são exibidas quando esses nomes não bastam para distinguir dois resultados.
-- **Given** que o campo está vazio ou contém apenas espaços, **When** a pessoa envia a busca, **Then** nenhuma requisição de geocodificação é feita e a validação informa que o nome da cidade é obrigatório.
-- **Given** que a resposta de geocodificação contém zero resultados, **When** a aplicação a recebe, **Then** é exibido “Nenhuma cidade encontrada”, o texto pesquisado permanece editável e nenhum clima é consultado.
-- **Given** que a consulta contém acentos, pontuação ou caracteres especiais, **When** a pessoa a envia, **Then** o texto é tratado como entrada literal, não é interpretado como marcação ou código e segue o fluxo normal de resultados ou ausência de resultados.
-- **Given** que a consulta de geocodificação falha ou excede dez segundos, **When** a aplicação trata a falha, **Then** exibe uma mensagem de erro distinta de “Nenhuma cidade encontrada” e oferece “Tentar novamente”.
-- **Given** que a busca de cidades está em erro, **When** a pessoa aciona “Tentar novamente” e a geocodificação responde com resultados, **Then** o erro desaparece e os resultados são exibidos.
+- **RF1-AC01** — **Given** que a consulta, após remover espaços externos, retorna mais de cinco resultados, **When** a pessoa envia a busca, **Then** a aplicação exibe somente os cinco primeiros na ordem recebida e permite selecionar cada resultado.
+- **RF1-AC02** — **Given** que há resultados de busca, **When** eles são exibidos, **Then** cada item mostra localidade, região administrativa e país quando fornecidos; coordenadas também são exibidas quando esses nomes não bastam para distinguir dois resultados.
+- **RF1-AC03** — **Given** que o campo está vazio ou contém apenas espaços, **When** a pessoa envia a busca, **Then** nenhuma requisição de geocodificação é feita e a validação informa que o nome da cidade é obrigatório.
+- **RF1-AC04** — **Given** que a resposta de geocodificação contém zero resultados, **When** a aplicação a recebe, **Then** é exibido “Nenhuma cidade encontrada”, o texto pesquisado permanece editável e nenhum clima é consultado.
+- **RF1-AC05** — **Given** que a consulta contém acentos, pontuação ou caracteres especiais, **When** a pessoa a envia, **Then** o texto é tratado como entrada literal, não é interpretado como marcação ou código e segue o fluxo normal de resultados ou ausência de resultados.
+- **RF1-AC06** — **Given** que a consulta de geocodificação falha ou excede dez segundos, **When** a aplicação trata a falha, **Then** exibe uma mensagem de erro distinta de “Nenhuma cidade encontrada” e oferece “Tentar novamente”.
+- **RF1-AC07** — **Given** que a busca de cidades está em erro, **When** a pessoa aciona “Tentar novamente” e a geocodificação responde com resultados, **Then** o erro desaparece e os resultados são exibidos.
 
 ### RF2 — Consultar clima atual
 
-- **Given** que a pessoa selecionou uma cidade e a resposta contém os cinco campos definidos em RF2, **When** a consulta termina, **Then** a aplicação identifica a cidade e exibe temperatura, sensação térmica, condição em pt-BR, umidade em `%`, vento em `km/h` e horário no fuso da cidade.
-- **Given** que um ou mais campos meteorológicos não foram fornecidos, **When** a resposta é exibida, **Then** cada campo ausente mostra “Indisponível” e os demais campos válidos continuam visíveis.
-- **Given** que a consulta falha ou não responde em dez segundos, **When** o limite é atingido, **Then** a seção atual mostra erro e “Tentar novamente”, sem apresentar dados antigos como atuais.
-- **Given** que a seção atual está em erro, **When** a pessoa aciona “Tentar novamente” e a consulta retorna dados válidos, **Then** o erro desaparece e os valores da cidade selecionada são exibidos.
-- **Given** que a pessoa aciona “Tentar novamente” e a nova consulta também falha, **When** a falha é recebida, **Then** o estado de erro permanece visível e a ação continua disponível.
+- **RF2-AC01** — **Given** que a pessoa selecionou uma cidade e a resposta contém os cinco campos definidos em RF2, **When** a consulta termina, **Then** a aplicação identifica a cidade e exibe temperatura, sensação térmica, condição em pt-BR, umidade em `%`, vento em `km/h` e horário no fuso da cidade.
+- **RF2-AC02** — **Given** que um ou mais campos meteorológicos não foram fornecidos, **When** a resposta é exibida, **Then** cada campo ausente mostra “Indisponível” e os demais campos válidos continuam visíveis.
+- **RF2-AC03** — **Given** que a consulta falha ou não responde em dez segundos, **When** o limite é atingido, **Then** a seção atual mostra erro e “Tentar novamente”, sem apresentar dados antigos como atuais.
+- **RF2-AC04** — **Given** que a seção atual está em erro, **When** a pessoa aciona “Tentar novamente” e a consulta retorna dados válidos, **Then** o erro desaparece e os valores da cidade selecionada são exibidos.
+- **RF2-AC05** — **Given** que a pessoa aciona “Tentar novamente” e a nova consulta também falha, **When** a falha é recebida, **Then** o estado de erro permanece visível e a ação continua disponível.
 
 ### RF3 — Consultar previsão de cinco dias
 
-- **Given** que a resposta contém mais de cinco datas no fuso da cidade, **When** a previsão é exibida, **Then** são mostradas exatamente as datas locais de hoje até hoje mais quatro dias, em ordem crescente e no formato `dd/MM/yyyy`.
-- **Given** que há dados para uma data da previsão, **When** a data é exibida, **Then** ela contém condição em pt-BR, mínima e máxima em temperatura selecionada, probabilidade de precipitação em `%` e vento máximo em `km/h`.
-- **Given** que falta um dia ou campo da resposta, **When** a previsão é exibida, **Then** as cinco datas continuam identificadas; o dia ausente mostra “Previsão indisponível” e o campo ausente mostra “Indisponível”, sem preencher valores estimados ou antigos.
-- **Given** que a consulta falha ou não responde em dez segundos, **When** o limite é atingido, **Then** apenas a seção de previsão mostra erro e “Tentar novamente”; dados atuais carregados com sucesso permanecem visíveis.
-- **Given** que a previsão está em erro, **When** a pessoa aciona “Tentar novamente” e a consulta retorna dados válidos, **Then** o erro desaparece e a previsão da cidade selecionada é exibida.
+- **RF3-AC01** — **Given** que a resposta contém mais de cinco datas no fuso da cidade, **When** a previsão é exibida, **Then** são mostradas exatamente as datas locais de hoje até hoje mais quatro dias, em ordem crescente e no formato `dd/MM/yyyy`.
+- **RF3-AC02** — **Given** que há dados para uma data da previsão, **When** a data é exibida, **Then** ela contém condição em pt-BR, mínima e máxima em temperatura selecionada, probabilidade de precipitação em `%` e vento máximo em `km/h`.
+- **RF3-AC03** — **Given** que falta um dia ou campo da resposta, **When** a previsão é exibida, **Then** as cinco datas continuam identificadas; o dia ausente mostra “Previsão indisponível” e o campo ausente mostra “Indisponível”, sem preencher valores estimados ou antigos.
+- **RF3-AC04** — **Given** que a consulta falha ou não responde em dez segundos, **When** o limite é atingido, **Then** apenas a seção de previsão mostra erro e “Tentar novamente”; dados atuais carregados com sucesso permanecem visíveis.
+- **RF3-AC05** — **Given** que a previsão está em erro, **When** a pessoa aciona “Tentar novamente” e a consulta retorna dados válidos, **Then** o erro desaparece e a previsão da cidade selecionada é exibida.
 
 ### RF4 — Alternar unidade de temperatura
 
-- **Given** que a aplicação acabou de ser carregada, **When** qualquer temperatura é exibida, **Then** todas as temperaturas atuais e previstas usam °C com uma casa decimal.
-- **Given** que os valores de origem são 20 °C e -1 °C, **When** a pessoa seleciona Fahrenheit, **Then** eles são exibidos como 68,0 °F e 30,2 °F em todas as seções.
-- **Given** que os valores de origem são 68 °F e 32 °F, **When** a pessoa seleciona Celsius, **Then** eles são exibidos como 20,0 °C e 0,0 °C em todas as seções.
-- **Given** que a pessoa altera a unidade e seleciona outra cidade sem recarregar a página, **When** os novos dados são exibidos, **Then** a unidade escolhida continua aplicada a todas as temperaturas.
-- **Given** que a aplicação é recarregada, **When** novas temperaturas são exibidas, **Then** a unidade volta a Celsius.
+- **RF4-AC01** — **Given** que a aplicação acabou de ser carregada, **When** qualquer temperatura é exibida, **Then** todas as temperaturas atuais e previstas usam °C com uma casa decimal.
+- **RF4-AC02** — **Given** que os valores de origem são 20 °C e -1 °C, **When** a pessoa seleciona Fahrenheit, **Then** eles são exibidos como 68,0 °F e 30,2 °F em todas as seções.
+- **RF4-AC03** — **Given** que os valores de origem são 68 °F e 32 °F, **When** a pessoa seleciona Celsius, **Then** eles são exibidos como 20,0 °C e 0,0 °C em todas as seções.
+- **RF4-AC04** — **Given** que a pessoa altera a unidade e seleciona outra cidade sem recarregar a página, **When** os novos dados são exibidos, **Then** a unidade escolhida continua aplicada a todas as temperaturas.
+- **RF4-AC05** — **Given** que a aplicação é recarregada, **When** novas temperaturas são exibidas, **Then** a unidade volta a Celsius.
 
 ## Non-Functional Requirements
 
@@ -80,6 +80,19 @@ Aplicação web responsiva, em pt-BR, para pesquisar uma cidade e consultar seu 
 - **RNF5 — Resiliência:** cada consulta deve atingir estado de erro em no máximo 10 s; nova tentativa é manual. Uma seção bem-sucedida permanece disponível quando a outra falha; dados sem confirmação atual não podem ser apresentados como atuais.
 - **RNF6 — Segurança e privacidade:** usar HTTPS; restringir conexões externas aos domínios necessários do Open-Meteo; tratar entrada e resposta como dados, nunca como código executável. Informar antes da primeira busca que o texto será enviado ao provedor. Não coletar localização, histórico ou telemetria nem persistir buscas.
 - **RNF7 — Segredos e dependências:** não distribuir credenciais privadas no cliente. O pipeline de release deve verificar dependências; vulnerabilidades críticas ou altas bloqueiam publicação, salvo exceção documentada e aprovada.
+
+## Traceability Matrix
+
+Cada intervalo de AC é inclusivo. Os RNFs 1–4, 6 e 7 são transversais às stories de interface; o RNF5 aplica-se aos fluxos que consultam geocodificação ou dados meteorológicos.
+
+| User Story | Acceptance Criteria | Requisitos não funcionais relevantes |
+| --- | --- | --- |
+| US1 — Busca para o dia | RF1-AC01–RF1-AC07; RF2-AC01–RF2-AC05 | RNF1–RNF7 |
+| US2 — Previsão do destino | RF1-AC01–RF1-AC07; RF3-AC01–RF3-AC05 | RNF1–RNF7 |
+| US3 — Condições para treinar | RF1-AC01–RF1-AC07; RF2-AC01–RF2-AC05; RF3-AC01–RF3-AC05 | RNF1–RNF7 |
+| US4 — Escolha da localidade | RF1-AC01–RF1-AC07 | RNF1–RNF7 |
+| US5 — Unidade de temperatura no dia a dia | RF4-AC01–RF4-AC05 | RNF1–RNF4, RNF6–RNF7 |
+| US6 — Unidade durante a viagem | RF4-AC01–RF4-AC05 | RNF1–RNF4, RNF6–RNF7 |
 
 ## Edge Cases
 
