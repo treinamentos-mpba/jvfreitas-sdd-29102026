@@ -6,6 +6,7 @@ describe('searchCities', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it('retorna lista vazia sem chamar a rede para input vazio', async () => {
@@ -82,20 +83,41 @@ describe('searchCities', () => {
     const fetchMock = vi.fn<typeof fetch>(
       (_input, init) =>
         new Promise<Response>((_resolve, reject) => {
-          init?.signal?.addEventListener('abort', () => reject(new Error('aborted')), {
-            once: true,
-          });
+          init?.signal?.addEventListener(
+            'abort',
+            () => {
+              const abortError = new Error('aborted');
+              abortError.name = 'AbortError';
+              reject(abortError);
+            },
+            { once: true },
+          );
         }),
     );
     vi.stubGlobal('fetch', fetchMock);
 
     const request = expect(searchCities('Campinas')).rejects.toMatchObject({
       name: 'WeatherServiceError',
+      message: 'A requisição demorou demais.',
       status: null,
     });
     await vi.advanceTimersByTimeAsync(10_000);
 
     await request;
+  });
+
+  it('converte falha de rede em WeatherServiceError e limpa o timer', async () => {
+    vi.useFakeTimers();
+    const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout');
+    const fetchMock = vi.fn<typeof fetch>().mockRejectedValue(new TypeError('fetch failed'));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(searchCities('Campinas')).rejects.toMatchObject({
+      name: 'WeatherServiceError',
+      message: 'Falha de rede.',
+      status: null,
+    });
+    expect(clearTimeoutSpy).toHaveBeenCalledOnce();
   });
 
   it('consulta current e daily e mapeia cinco dias por índice', async () => {

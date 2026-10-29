@@ -6,46 +6,15 @@ import EmptyState from './components/states/EmptyState';
 import ErrorState from './components/states/ErrorState';
 import LoadingState from './components/states/LoadingState';
 import UnitToggle from './components/UnitToggle';
-import { mockWeatherData } from './mocks/weatherData';
-import type { Unit, WeatherData } from './types/weather';
-
-type WeatherViewState =
-  | { status: 'idle' }
-  | { status: 'loading'; query: string }
-  | { status: 'empty'; query: string }
-  | { status: 'error'; query: string }
-  | { status: 'success'; query: string; data: WeatherData };
-
-function loadMockWeather(query: string): Promise<WeatherData | null> {
-  const normalizedQuery = query.trim().toLocaleLowerCase('pt-BR');
-  const mockCityName = mockWeatherData.city.name.toLocaleLowerCase('pt-BR');
-
-  return Promise.resolve(normalizedQuery === mockCityName ? mockWeatherData : null);
-}
+import { useWeather } from './hooks/useWeather';
+import type { Unit } from './types/weather';
 
 export default function App() {
   const [unit, setUnit] = useState<Unit>('celsius');
-  const [viewState, setViewState] = useState<WeatherViewState>({ status: 'idle' });
-
-  function handleSearch(query: string) {
-    setViewState({ status: 'loading', query });
-
-    void loadMockWeather(query)
-      .then((data) => {
-        if (data) {
-          setViewState({ status: 'success', query, data });
-          return;
-        }
-
-        setViewState({ status: 'empty', query });
-      })
-      .catch(() => {
-        setViewState({ status: 'error', query });
-      });
-  }
+  const weather = useWeather();
 
   function renderWeatherContent() {
-    switch (viewState.status) {
+    switch (weather.status) {
       case 'idle':
         return (
           <p className="rounded-xl border border-white/10 bg-white/5 p-5 text-slate-300 backdrop-blur-md">
@@ -53,41 +22,51 @@ export default function App() {
           </p>
         );
       case 'loading':
-        return <LoadingState message={`Buscando ${viewState.query}...`} />;
+        return <LoadingState message={`Buscando ${weather.query}...`} />;
       case 'empty':
         return (
           <EmptyState
             title="Nenhuma cidade encontrada"
-            hint={`Não há dados de demonstração para “${viewState.query}”. Tente Campinas.`}
+            hint={`Não foram encontradas cidades para “${weather.query}”. Tente outro nome.`}
           />
         );
       case 'error':
         return (
           <ErrorState
-            message="Não foi possível carregar os dados. Tente novamente."
-            onRetry={() => handleSearch(viewState.query)}
+            message={weather.error?.message ?? 'Não foi possível carregar os dados.'}
+            onRetry={() => {
+              void weather.retry();
+            }}
           />
         );
-      case 'success':
+      case 'success': {
+        if (!weather.data) {
+          return (
+            <ErrorState
+              message="Os dados recebidos estão incompletos."
+              onRetry={() => {
+                void weather.retry();
+              }}
+            />
+          );
+        }
+
         return (
           <div className="space-y-8">
-            <CurrentWeather
-              city={viewState.data.city}
-              current={viewState.data.current}
-              unit={unit}
-            />
+            <CurrentWeather city={weather.data.city} current={weather.data.current} unit={unit} />
             <section aria-labelledby="forecast-heading" className="space-y-4">
               <h2 id="forecast-heading" className="text-lg font-semibold text-white">
                 Próximos dias
               </h2>
               <ForecastList
-                forecast={viewState.data.forecast}
+                forecast={weather.data.forecast}
                 unit={unit}
-                timeZone={viewState.data.city.timeZone}
+                timeZone={weather.data.city.timeZone}
               />
             </section>
           </div>
         );
+      }
     }
   }
 
@@ -108,7 +87,12 @@ export default function App() {
             <span className="mt-1 block text-2xl font-bold">Tempo</span>
           </div>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-            <SearchBar onSearch={handleSearch} disabled={viewState.status === 'loading'} />
+            <SearchBar
+              onSearch={(name) => {
+                void weather.search(name);
+              }}
+              disabled={weather.status === 'loading'}
+            />
             <UnitToggle unit={unit} onChange={setUnit} />
           </div>
         </div>

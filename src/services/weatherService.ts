@@ -19,6 +19,26 @@ export class WeatherServiceError extends Error {
   }
 }
 
+function isAbortError(error: unknown): boolean {
+  return (
+    typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError'
+  );
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    const message = isAbortError(error) ? 'A requisição demorou demais.' : 'Falha de rede.';
+    throw new WeatherServiceError(message, null);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -73,24 +93,9 @@ export async function searchCities(name: string): Promise<City[]> {
   }
 
   const url = `${GEOCODING_URL}?name=${encodeURIComponent(query)}&count=${MAX_RESULTS}&language=pt&format=json`;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  let response: Response;
-
-  try {
-    response = await fetch(url, {
-      headers: { Accept: 'application/json' },
-      signal: controller.signal,
-    });
-  } catch (error) {
-    if (controller.signal.aborted) {
-      throw new WeatherServiceError('A consulta de geocoding excedeu o tempo limite.', null);
-    }
-
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
-  }
+  const response = await fetchWithTimeout(url, {
+    headers: { Accept: 'application/json' },
+  });
 
   if (!response.ok) {
     throw new WeatherServiceError(
@@ -136,24 +141,9 @@ export async function getWeather(city: City): Promise<WeatherData> {
     timezone: city.timeZone,
     forecast_days: '5',
   });
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  let response: Response;
-
-  try {
-    response = await fetch(`${FORECAST_URL}?${params.toString()}`, {
-      headers: { Accept: 'application/json' },
-      signal: controller.signal,
-    });
-  } catch (error) {
-    if (controller.signal.aborted) {
-      throw new WeatherServiceError('A consulta de forecast excedeu o tempo limite.', null);
-    }
-
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
-  }
+  const response = await fetchWithTimeout(`${FORECAST_URL}?${params.toString()}`, {
+    headers: { Accept: 'application/json' },
+  });
 
   if (!response.ok) {
     throw new WeatherServiceError(
