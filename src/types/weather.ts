@@ -17,6 +17,8 @@ export interface CurrentWeather {
   weatherCode: number | null; // Código WMO da condição atual.
   relativeHumidityPercent: number | null; // Umidade relativa em porcentagem.
   windSpeedKmh: number | null; // Velocidade atual do vento em km/h.
+  precipitationMm?: number | null; // Precipitação atual em milímetros, quando disponível.
+  pressureHpa?: number | null; // Pressão ao nível do mar em hPa, quando disponível.
   observedAtLocal: string | null; // Horário local da observação, associado ao fuso da cidade.
 }
 
