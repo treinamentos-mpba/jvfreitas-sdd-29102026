@@ -1,7 +1,23 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import CurrentWeather from '../../src/components/CurrentWeather';
+import UnitToggle from '../../src/components/UnitToggle';
 import { mockWeatherData } from '../../src/mocks/weatherData';
+import type { Unit } from '../../src/types/weather';
+
+function TemperatureUnitHarness() {
+  const [unit, setUnit] = useState<Unit>('celsius');
+  const current = { ...mockWeatherData.current, temperatureC: 0, apparentTemperatureC: 0 };
+
+  return (
+    <>
+      <UnitToggle unit={unit} onChange={setUnit} />
+      <CurrentWeather city={mockWeatherData.city} current={current} unit={unit} />
+    </>
+  );
+}
 
 describe('CurrentWeather', () => {
   it('exibe cidade, condição e métricas atuais', () => {
@@ -35,5 +51,14 @@ describe('CurrentWeather', () => {
     expect(screen.getByText('74,8 °F')).toBeInTheDocument();
     expect(screen.getAllByText('Indisponível')).toHaveLength(2);
   });
-});
 
+  it('atualiza a temperatura de 0 °C para 32 °F ao usar o UnitToggle', async () => {
+    const user = userEvent.setup();
+    render(<TemperatureUnitHarness />);
+
+    expect(screen.getAllByText('0,0 °C')).toHaveLength(2);
+    await user.click(screen.getByRole('button', { name: 'Fahrenheit' }));
+
+    expect(screen.getAllByText('32,0 °F')).toHaveLength(2);
+  });
+});

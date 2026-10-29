@@ -56,7 +56,7 @@ export default function App() {
             <CurrentWeather city={weather.data.city} current={weather.data.current} unit={unit} />
             <section aria-labelledby="forecast-heading" className="space-y-4">
               <h2 id="forecast-heading" className="text-lg font-semibold text-white">
-                Próximos dias
+                Previsão de 5 dias
               </h2>
               <ForecastList
                 forecast={weather.data.forecast}

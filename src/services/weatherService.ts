@@ -53,7 +53,16 @@ function finiteNumber(value: unknown): number | null {
 
 function dailyNumber(daily: Record<string, unknown>, field: string, index: number): number | null {
   const values = daily[field];
-  return Array.isArray(values) ? finiteNumber(values[index]) : null;
+  if (!Array.isArray(values)) {
+    return null;
+  }
+
+  const value = values[index];
+  if (field === 'precipitation_probability_max' && value === null) {
+    return 0;
+  }
+
+  return finiteNumber(value);
 }
 
 function mapCity(value: unknown): City | null {

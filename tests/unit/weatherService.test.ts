@@ -70,6 +70,18 @@ describe('searchCities', () => {
     await expect(searchCities('Cidade')).resolves.toEqual([]);
   });
 
+  it('retorna lista vazia quando results está ausente', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({}), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(searchCities('Campinas')).resolves.toEqual([]);
+  });
+
   it('lança WeatherServiceError quando a resposta HTTP não é ok', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 503 }));
     vi.stubGlobal('fetch', fetchMock);
@@ -168,6 +180,55 @@ describe('searchCities', () => {
     });
   });
 
+  it('lança WeatherServiceError quando o forecast responde com HTTP não-ok', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 502 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(getWeather(mockWeatherData.city)).rejects.toMatchObject({
+      name: 'WeatherServiceError',
+      status: 502,
+    });
+  });
+
+  it('converte falha de rede do forecast em WeatherServiceError', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockRejectedValue(new TypeError('fetch failed'));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(getWeather(mockWeatherData.city)).rejects.toMatchObject({
+      name: 'WeatherServiceError',
+      message: 'Falha de rede.',
+      status: null,
+    });
+  });
+
+  it('aborta o forecast e lança erro de timeout após dez segundos', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn<typeof fetch>(
+      (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener(
+            'abort',
+            () => {
+              const abortError = new Error('aborted');
+              abortError.name = 'AbortError';
+              reject(abortError);
+            },
+            { once: true },
+          );
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const request = expect(getWeather(mockWeatherData.city)).rejects.toMatchObject({
+      name: 'WeatherServiceError',
+      message: 'A requisição demorou demais.',
+      status: null,
+    });
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    await request;
+  });
+
   it('lança WeatherServiceError quando current ou daily estão ausentes', async () => {
     const incompleteResponses = [
       { daily: { time: ['2026-10-29', '2026-10-30', '2026-10-31', '2026-11-01', '2026-11-02'] } },
@@ -182,5 +243,50 @@ describe('searchCities', () => {
 
       await expect(getWeather(mockWeatherData.city)).rejects.toBeInstanceOf(WeatherServiceError);
     }
+  });
+
+  it('normaliza probabilidade de precipitação explicitamente null para zero', async () => {
+    const forecastResponse = {
+      current: {},
+      daily: {
+        time: ['2026-10-29', '2026-10-30', '2026-10-31', '2026-11-01', '2026-11-02'],
+        precipitation_probability_max: [null, 10, 20, 30, 40],
+      },
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify(forecastResponse), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const weather = await getWeather(mockWeatherData.city);
+
+    expect(weather.forecast[0]?.precipitationProbabilityPercent).toBe(0);
+    expect(weather.forecast[1]?.precipitationProbabilityPercent).toBe(10);
+  });
+
+  it('preserva null em campos meteorológicos ausentes em resposta parcial válida', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          current: {},
+          daily: {
+            time: ['2026-10-29', '2026-10-30', '2026-10-31', '2026-11-01', '2026-11-02'],
+            weather_code: [0],
+            temperature_2m_min: [null],
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const weather = await getWeather(mockWeatherData.city);
+
+    expect(weather.current.temperatureC).toBeNull();
+    expect(weather.current.relativeHumidityPercent).toBeNull();
+    expect(weather.forecast).toHaveLength(5);
+    expect(weather.forecast[0]?.minimumTemperatureC).toBeNull();
+    expect(weather.forecast[0]?.maximumTemperatureC).toBeNull();
+    expect(weather.forecast[4]?.weatherCode).toBeNull();
   });
 });
