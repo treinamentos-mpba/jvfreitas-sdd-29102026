@@ -4,6 +4,18 @@ import { describe, expect, it } from 'vitest';
 import App from '../../src/App';
 
 describe('App', () => {
+  it('oferece skip link por teclado para o conteúdo principal', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    const skipLink = screen.getByRole('link', { name: 'Pular para o conteúdo' });
+    expect(skipLink).toHaveAttribute('href', '#main-content');
+    expect(screen.getByRole('main')).toHaveAttribute('tabindex', '-1');
+
+    await user.tab();
+    expect(skipLink).toHaveFocus();
+  });
+
   it('começa no estado idle e busca o mock da cidade', async () => {
     const user = userEvent.setup();
     render(<App />);

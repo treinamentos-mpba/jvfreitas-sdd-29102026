@@ -19,7 +19,7 @@ export default function UnitToggle({ unit, onChange }: UnitToggleProps) {
         onClick={() => onChange('celsius')}
         className={`rounded-md px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 focus-visible:ring-offset-night-900 ${
           unit === 'celsius'
-            ? 'bg-accent-500 text-white'
+            ? 'bg-accent-600 text-white'
             : 'text-slate-300 hover:bg-white/10 hover:text-white'
         }`}
       >
@@ -32,7 +32,7 @@ export default function UnitToggle({ unit, onChange }: UnitToggleProps) {
         onClick={() => onChange('fahrenheit')}
         className={`rounded-md px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 focus-visible:ring-offset-night-900 ${
           unit === 'fahrenheit'
-            ? 'bg-accent-500 text-white'
+            ? 'bg-accent-600 text-white'
             : 'text-slate-300 hover:bg-white/10 hover:text-white'
         }`}
       >

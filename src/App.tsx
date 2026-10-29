@@ -93,17 +93,20 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-night-900 text-white">
+      <a
+        href="#main-content"
+        className="sr-only fixed left-4 top-4 z-50 rounded-lg bg-accent-400 px-4 py-3 font-semibold text-night-900 focus:not-sr-only focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+      >
+        Pular para o conteúdo
+      </a>
       <header className="border-b border-white/10 bg-night-800/60 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row lg:items-end lg:justify-between lg:px-8">
-          <a
-            href="#main-content"
-            className="w-fit rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400"
-          >
+          <div className="shrink-0">
             <span className="block text-xs font-semibold uppercase tracking-widest text-accent-400">
               Weather
             </span>
             <span className="mt-1 block text-2xl font-bold">Tempo</span>
-          </a>
+          </div>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
             <SearchBar onSearch={handleSearch} disabled={viewState.status === 'loading'} />
             <UnitToggle unit={unit} onChange={setUnit} />
@@ -111,7 +114,11 @@ export default function App() {
         </div>
       </header>
 
-      <main id="main-content" className="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto max-w-7xl space-y-8 px-4 py-8 focus-visible:outline-none sm:px-6 lg:px-8"
+      >
         {renderWeatherContent()}
       </main>
     </div>
