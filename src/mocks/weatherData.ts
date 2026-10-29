@@ -1,0 +1,64 @@
+import type { WeatherData } from '../types/weather';
+
+export const mockWeatherData: WeatherData = {
+  city: {
+    id: 123456,
+    name: 'Campinas',
+    adminRegion: 'São Paulo',
+    country: 'Brasil',
+    countryCode: 'BR',
+    latitude: -22.9056,
+    longitude: -47.0608,
+    timeZone: 'America/Sao_Paulo',
+  },
+  current: {
+    temperatureC: 23.8,
+    apparentTemperatureC: 24.2,
+    weatherCode: 1,
+    relativeHumidityPercent: 57,
+    windSpeedKmh: 9.4,
+    observedAtLocal: '2026-10-29T12:00',
+  },
+  forecast: [
+    {
+      date: '2026-10-29',
+      weatherCode: 1,
+      minimumTemperatureC: 17.2,
+      maximumTemperatureC: 27.1,
+      precipitationProbabilityPercent: 10,
+      maximumWindSpeedKmh: 12.4,
+    },
+    {
+      date: '2026-10-30',
+      weatherCode: 3,
+      minimumTemperatureC: 18.0,
+      maximumTemperatureC: 26.3,
+      precipitationProbabilityPercent: 15,
+      maximumWindSpeedKmh: 14.1,
+    },
+    {
+      date: '2026-10-31',
+      weatherCode: 61,
+      minimumTemperatureC: 19.1,
+      maximumTemperatureC: 24.8,
+      precipitationProbabilityPercent: 75,
+      maximumWindSpeedKmh: 17.6,
+    },
+    {
+      date: '2026-11-01',
+      weatherCode: 2,
+      minimumTemperatureC: 17.8,
+      maximumTemperatureC: 25.4,
+      precipitationProbabilityPercent: 20,
+      maximumWindSpeedKmh: 11.3,
+    },
+    {
+      date: '2026-11-02',
+      weatherCode: 0,
+      minimumTemperatureC: 16.4,
+      maximumTemperatureC: 28.0,
+      precipitationProbabilityPercent: 0,
+      maximumWindSpeedKmh: 9.2,
+    },
+  ],
+};
